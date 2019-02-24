@@ -1,32 +1,141 @@
+func first<A, B, C>(_ f: @escaping (A) -> C) -> ((A, B)) -> (C, B) {
+  return { pair in
+    (f(pair.0), pair.1)
+  }
+}
+
+func second<A, B, C>(_ f: @escaping (B) -> C) -> ((A, B)) -> (A, C) {
+  return { pair in
+    (pair.0, f(pair.1))
+  }
+}
+
+precedencegroup BackwardsComposition {
+  associativity: left
+}
+infix operator <<<: BackwardsComposition
+func <<< <A, B, C>(_ f: @escaping (B) -> C, _ g: @escaping (A) -> B) -> (A) -> C {
+  return { f(g($0)) }
+}
+
 /*:
  # Functional Setters Exercises
 
  1. As we saw with free `map` on `Array`, define free `map` on `Optional` and use it to compose setters that traverse into an optional field.
  */
-// TODO
+
+public func map<A, B>(_ f: @escaping (A) -> B) -> (A?) -> B? {
+  return { a in a.map(f) }
+}
+
+var xy: (Int?, Int?) = (nil, 2)
+print(xy |> (second <<< map) { $0 * 2 })
+
 /*:
  2. Take the following `User` struct and write a setter for its `name` property. Add another property, and add a setter for it. What are some potential issues with building these setters?
  */
-struct User {
+
+struct User1 {
   let name: String
 }
-// TODO
+
+let setUserName = User1.init
+print("X" |> setUserName)
+
+struct User2 {
+  let name: String
+  let age: Int
+}
+
+func setUserName(_ name: String) -> (User2) -> User2 {
+  return { .init(name: name, age: $0.age) }
+}
+func setUserAge(_ age: Int) -> (User2) -> User2 {
+  return { .init(name: $0.name, age: age) }
+}
+print(User2(name: "X", age: 20) |> setUserAge(21))
+
+// The problem is that in addition to the new setter, we have to modify all existing setters.
+
 /*:
  3. Add a `location` property to `User`, which holds a `Location`, defined below. Write a setter for `userLocationName`. Now write setters for `userLocation` and `locationName`. How do these setters compose?
  */
+
 struct Location {
   let name: String
 }
-// TODO
+struct User {
+  let name: String
+  let age: Int
+  let location: Location
+}
+let user = User(name: "X", age: 30, location: Location(name: "Earth"))
+
+func setUserLocationName(_ name: String) -> (User) -> User {
+  return { .init(name: $0.name, age: $0.age, location: .init(name: name)) }
+}
+print(user |> setUserLocationName("Moon"))
+
+func setUserLocation(_ location: Location) -> (User) -> User {
+  return { .init(name: $0.name, age: $0.age, location: location) }
+}
+func setLocationName(_ name: String) -> Location {
+  return .init(name: name)
+}
+print(user |> (setUserLocation <<< setLocationName)("Mars"))
+
 /*:
  4. Do `first` and `second` work with tuples of three or more values? Can we write `first`, `second`, `third`, and `nth` for tuples of _n_ values?
  */
-// TODO
+
+func first<A, B, C, D>(_ f: @escaping (A) -> D) -> ((A, B, C)) -> (D, B, C) {
+  return { (f($0.0), $0.1, $0.2) }
+}
+
+func second<A, B, C, D>(_ f: @escaping (B) -> D) -> ((A, B, C)) -> (A, D, C) {
+  return { ($0.0, f($0.1), $0.2) }
+}
+
+func third<A, B, C, D>(_ f: @escaping (C) -> D) -> ((A, B, C)) -> (A, B, D) {
+  return { ($0.0, $0.1, f($0.2)) }
+}
+
+// Each nth function for a tuple of m values would require m + 1 generic parameters.
+
 /*:
  5. Write a setter for a dictionary that traverses into a key to set a value.
  */
-// TODO
+
+func setValue<Key, Value>(_ value: Value, for key: Key) -> ([Key: Value]) -> [Key: Value] {
+  return {
+    var copy = $0
+    copy[key] = value
+    return copy
+  }
+}
+
+let kv = [1: "A", 2: "B"]
+print(kv |> setValue("C", for: 3))
+
 /*:
- 6. What is the difference between a function of the form `((A) -> B) -> (C) -> (D)` and one of the form `(A) -> (B) -> (C) -> D`?
+ 6. Write a setter for a dictionary that traverses into a key to set a value if and only if that value already exists.
  */
-// TODO
+
+func updateValue<Key, Value>(_ value: Value, for key: Key) -> ([Key: Value]) -> [Key: Value] {
+  return {
+    guard $0[key] != nil else { return $0 }
+    var copy = $0
+    copy[key] = value
+    return copy
+  }
+}
+
+print(kv |> updateValue("C", for: 3))
+print(kv |> updateValue("D", for: 2))
+
+/*:
+ 7. What is the difference between a function of the form `((A) -> B) -> (C) -> (D)` and one of the form `(A) -> (B) -> (C) -> D`?
+ */
+
+// The first takes a closure as its parameter and returns a closure as result.
+// The second takes a value as its parameters and returns a closure which returns a closure as result.
