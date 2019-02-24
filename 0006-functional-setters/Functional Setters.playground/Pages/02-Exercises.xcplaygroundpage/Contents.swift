@@ -117,22 +117,22 @@ func setValue<Key, Value>(for key: Key) -> (@escaping (Value?) -> Value) -> ([Ke
 }
 
 let kv = [1: "A", 2: "B"]
-print(kv |> setValue(for: 3)({ _ in "C" }))
+print(kv |> (setValue(for: 3)) { _ in "C" })
 
 /*:
  6. Write a setter for a dictionary that traverses into a key to set a value if and only if that value already exists.
  */
 
 func updateValue<Key, Value>(for key: Key) -> (@escaping (Value) -> Value) -> ([Key: Value]) -> [Key: Value] {
-  return { f in {    
+  return { f in {
     var copy = $0
     copy[key] = copy[key].map(f)
     return copy
   } }
 }
 
-print(kv |> updateValue(for: 3)({ _ in "C" }))
-print(kv |> updateValue(for: 2)({ _ in "D" }))
+print(kv |> (updateValue(for: 3)) { _ in "C" })
+print(kv |> (updateValue(for: 2)) { _ in "D" })
 
 /*:
  7. What is the difference between a function of the form `((A) -> B) -> (C) -> (D)` and one of the form `(A) -> (B) -> (C) -> D`?
