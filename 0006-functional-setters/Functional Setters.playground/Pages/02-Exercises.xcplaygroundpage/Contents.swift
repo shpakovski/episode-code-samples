@@ -39,21 +39,23 @@ struct User1 {
   let name: String
 }
 
-let setUserName = User1.init
-print("X" |> setUserName)
+func userName(_ f: @escaping (String) -> String) -> (User1) -> User1 {
+  return { .init(name: f($0.name)) }
+}
+print(User1(name: "X") |> userName { $0 + $0 } )
 
 struct User2 {
   let name: String
   let age: Int
 }
 
-func setUserName(_ name: String) -> (User2) -> User2 {
-  return { .init(name: name, age: $0.age) }
+func userName2(_ f: @escaping (String) -> String) -> (User2) -> User2 {
+  return { .init(name: f($0.name), age: $0.age) }
 }
-func setUserAge(_ age: Int) -> (User2) -> User2 {
-  return { .init(name: $0.name, age: age) }
+func userAge2(_ f: @escaping (Int) -> Int) -> (User2) -> User2 {
+  return { .init(name: $0.name, age: f($0.age)) }
 }
-print(User2(name: "X", age: 20) |> setUserAge(21))
+print(User2(name: "X", age: 20) |> userName2 { $0 + "!" } <> userAge2 { $0 + 1 } )
 
 // The problem is that in addition to the new setter, we have to modify all existing setters.
 
@@ -71,18 +73,18 @@ struct User {
 }
 let user = User(name: "X", age: 30, location: Location(name: "Earth"))
 
-func setUserLocationName(_ name: String) -> (User) -> User {
-  return { .init(name: $0.name, age: $0.age, location: .init(name: name)) }
+func userLocationName(_ f: @escaping (String) -> String) -> (User) -> User {
+  return { .init(name: $0.name, age: $0.age, location: .init(name: f($0.location.name))) }
 }
-print(user |> setUserLocationName("Moon"))
+print(user |> userLocationName { "Maybe \($0)" })
 
-func setUserLocation(_ location: Location) -> (User) -> User {
-  return { .init(name: $0.name, age: $0.age, location: location) }
+func userLocation(_ f: @escaping (Location) -> Location) -> (User) -> User {
+  return { .init(name: $0.name, age: $0.age, location: f($0.location)) }
 }
-func setLocationName(_ name: String) -> Location {
-  return .init(name: name)
+func locationName(_ f: @escaping (String) -> String) -> (Location) -> Location {
+  return { .init(name: f($0.name)) }
 }
-print(user |> (setUserLocation <<< setLocationName)("Mars"))
+print(user |> (userLocation <<< locationName) { "Definitely \($0)" })
 
 /*:
  4. Do `first` and `second` work with tuples of three or more values? Can we write `first`, `second`, `third`, and `nth` for tuples of _n_ values?
