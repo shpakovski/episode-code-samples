@@ -150,15 +150,6 @@ dump(result |> get(\User2.name))
     What would it look like to define an `EnumKeyPath<Root, Value>` type that encapsulates the idea of “getting” and “setting” cases in an enum?
  */
 
-enum Session {
-  enum Account {
-    case individual(email: String)
-    case enterprise(id: UUID)
-  }
-  case loggedOut
-  case loggedIn(account: Account)
-}
-
 // https://gist.github.com/mbrandonw/e6247b84f2a3b83c8fa27d022eed3927
 struct EnumKeyPath<Whole, Part> { // A keypath-like structure for enums.
   let get: (Whole) -> Part? // Given an enum, we can try to get the associated value in a case.
@@ -179,8 +170,6 @@ extension Enum {
     }
   }
 }
-
-extension Session: Enum {}
 
 enum Session: Enum {
   enum Account {
@@ -229,7 +218,7 @@ func + <A, B, C>(lhs: EnumKeyPath<A, B>, rhs: EnumKeyPath<B, C>) -> EnumKeyPath<
 dump(session[loggedIn + individual])
 
 /*:
- 8. Given a value in `EnumKeyPath<A, C>` and a value in `EnumKeyPath<B, C>`, can you construct a value in `EnumKeyPath<Either<A, B>, C>`?
+ 8. Given a value in `EnumKeyPath<A, C>` and a value in `EnumKeyPath<B, C>`, can you construct a value in `EnumKeyPath<A, Either<B, C>>`?
  */
 
 enum Either<A, B> {
@@ -237,15 +226,17 @@ enum Either<A, B> {
   case right(B)
 }
 
-func - <A, B, C>(lhs: EnumKeyPath<A, C>, rhs: EnumKeyPath<B, C>) -> EnumKeyPath<Either<A, B>, C> {
-  return .init(get: { ab in
-    switch ab {
-    case let .left(a): return lhs.get(a)
-    case let .right(b): return rhs.get(b)
+func | <A, B, C>(lhs: EnumKeyPath<A, B>, rhs: EnumKeyPath<A, C>) -> EnumKeyPath<A, Either<B, C>> {
+  return .init(get: { a in
+    if let b = lhs.get(a) { return .left(b) }
+    if let c = rhs.get(a) { return .right(c) }
+    return nil
+  }, set: { bc in
+    switch bc {
+    case let .left(b): return lhs.set(b)
+    case let .right(c): return rhs.set(c)
     }
-  }, set: { c in
-    return .left(lhs.set(c)) // .right(rhs.set(c))
   })
 }
 
-// The answer is no, because both left and right values can be constructed in a setter
+dump(session[loggedIn | loggedOut])
