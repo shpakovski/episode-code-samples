@@ -1,3 +1,5 @@
+import Foundation
+
 /*:
  # Getters and Key Paths Exercises
 
@@ -149,19 +151,46 @@ dump(result |> get(\User2.name))
  */
 
 enum Session {
+  enum Account {
+    case individual(email: String)
+    case enterprise(id: UUID)
+  }
   case loggedOut
-  case loggedIn(User)
+  case loggedIn(account: Account)
 }
 
-class EnumKeyPath<Root, Value> {}
+// \Session.loggedOut // EnumKeyPath<Session, Unit?>
+// \Session.loggedIn // EnumKeyPath<Session, Account?>
+// \Session.loggedIn.enterprise // EnumKeyPath<Session, UUID?>
 
-// TODO
 /*:
  7. Given a value in `EnumKeyPath<A, B>` and `EnumKeyPath<B, C>`, can you construct a value in
  `EnumKeyPath<A, C>`?
  */
-// TODO
+
+// func + <A, B, C>(keyPath1: EnumKeyPath<A, B>, keyPath2: EnumKeyPath<B, C>) -> EnumKeyPath<A, C> {
+//   return EnumKeyPath { $0[keyPath: keyPath1][keyPath: keyPath2] }
+// }
+// let loggedIn = \Session.loggedIn // EnumKeyPath<Session, Account?>
+// let individual = \Account.individual // EnumKeyPath<Account, String?>
+// session[keyPath: loggedIn + individual] // String?
+
 /*:
  8. Given a value in `EnumKeyPath<A, C>` and a value in `EnumKeyPath<B, C>`, can you construct a value in `EnumKeyPath<Either<A, B>, C>`?
  */
-// TODO
+
+// func - <A, B, C>(keyPath1: EnumKeyPath<A, C>, keyPath2: EnumKeyPath<B, C>) -> EnumKeyPath<Either<A, B>, C> {
+//   return EnumKeyPath {
+//    switch $0 {
+//    case let a as A.Type:
+//      return a[keyPath: keyPath1]
+//    case let b as B.Type:
+//      return b[keyPath: keyPath2]
+//    default:
+//      fatalError()
+//    }
+//   }
+// }
+// \Session.loggedIn.individual // EnumKeyPath<Session, String?>
+// \Account.individual // EnumKeyPath<Account, String?>
+// \Session.loggedIn.individual - \Account.individual // EnumKeyPath<Either<Session, Account>, String?>
