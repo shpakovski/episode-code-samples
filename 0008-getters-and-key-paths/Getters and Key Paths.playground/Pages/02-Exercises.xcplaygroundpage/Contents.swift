@@ -159,38 +159,93 @@ enum Session {
   case loggedIn(account: Account)
 }
 
-// \Session.loggedOut // EnumKeyPath<Session, Unit?>
-// \Session.loggedIn // EnumKeyPath<Session, Account?>
-// \Session.loggedIn.enterprise // EnumKeyPath<Session, UUID?>
+// https://gist.github.com/mbrandonw/e6247b84f2a3b83c8fa27d022eed3927
+struct EnumKeyPath<Whole, Part> { // A keypath-like structure for enums.
+  let get: (Whole) -> Part? // Given an enum, we can try to get the associated value in a case.
+  let set: (Part) -> Whole // Given an associated value, we can plug it into the enum.
+}
+
+protocol Enum {
+  subscript<Part>(keyPath: EnumKeyPath<Self, Part>) -> Part? { get set }
+}
+
+extension Enum {
+  subscript<Part>(keyPath: EnumKeyPath<Self, Part>) -> Part? {
+    get {
+      return keyPath.get(self)
+    }
+    set(newValue) {
+      newValue.map { self = keyPath.set($0) }
+    }
+  }
+}
+
+extension Session: Enum {}
+
+enum Session: Enum {
+  enum Account {
+    case individual(email: String)
+    case enterprise(id: UUID)
+  }
+  case loggedOut
+  case loggedIn(account: Account)
+}
+
+let loggedOut = EnumKeyPath<Session, Void>(get: {
+  guard case .loggedOut = $0 else { return nil }
+  return ()
+}, set: { _ in .loggedOut })
+
+let loggedIn = EnumKeyPath<Session, Session.Account>(get: {
+  guard case let .loggedIn(account) = $0 else { return nil }
+  return account
+}, set: { .loggedIn(account: $0) })
+
+var session = Session.loggedOut
+dump(session[loggedOut])
+
+session[loggedIn] = .individual(email: "hello@world.com")
+dump(session)
 
 /*:
  7. Given a value in `EnumKeyPath<A, B>` and `EnumKeyPath<B, C>`, can you construct a value in
  `EnumKeyPath<A, C>`?
  */
 
-// func + <A, B, C>(keyPath1: EnumKeyPath<A, B>, keyPath2: EnumKeyPath<B, C>) -> EnumKeyPath<A, C> {
-//   return EnumKeyPath { $0[keyPath: keyPath1][keyPath: keyPath2] }
-// }
-// let loggedIn = \Session.loggedIn // EnumKeyPath<Session, Account?>
-// let individual = \Account.individual // EnumKeyPath<Account, String?>
-// session[keyPath: loggedIn + individual] // String?
+let individual = EnumKeyPath<Session.Account, String>(get: {
+  guard case let .individual(email) = $0 else { return nil }
+  return email
+}, set: { .individual(email: $0) })
+
+func + <A, B, C>(lhs: EnumKeyPath<A, B>, rhs: EnumKeyPath<B, C>) -> EnumKeyPath<A, C> {
+  return .init(get: { a in
+    guard let b = lhs.get(a) else { return nil }
+    return rhs.get(b)
+  }, set: { c in
+    return lhs.set(rhs.set(c))
+  })
+}
+
+dump(session[loggedIn + individual])
 
 /*:
  8. Given a value in `EnumKeyPath<A, C>` and a value in `EnumKeyPath<B, C>`, can you construct a value in `EnumKeyPath<Either<A, B>, C>`?
  */
 
-// func - <A, B, C>(keyPath1: EnumKeyPath<A, C>, keyPath2: EnumKeyPath<B, C>) -> EnumKeyPath<Either<A, B>, C> {
-//   return EnumKeyPath {
-//    switch $0 {
-//    case let a as A.Type:
-//      return a[keyPath: keyPath1]
-//    case let b as B.Type:
-//      return b[keyPath: keyPath2]
-//    default:
-//      fatalError()
-//    }
-//   }
-// }
-// \Session.loggedIn.individual // EnumKeyPath<Session, String?>
-// \Account.individual // EnumKeyPath<Account, String?>
-// \Session.loggedIn.individual - \Account.individual // EnumKeyPath<Either<Session, Account>, String?>
+enum Either<A, B> {
+  case left(A)
+  case right(B)
+}
+
+func - <A, B, C>(lhs: EnumKeyPath<A, C>, rhs: EnumKeyPath<B, C>) -> EnumKeyPath<Either<A, B>, C> {
+  return .init(get: { ab in
+    switch ab {
+    case let .left(a): return lhs.get(a)
+    case let .right(b): return rhs.get(b)
+    }
+  }, set: { c in
+    return .left(lhs.set(c)) // .right(rhs.set(c))
+  })
+}
+
+// The answer is no, because both left and right values can be constructed in a setter
