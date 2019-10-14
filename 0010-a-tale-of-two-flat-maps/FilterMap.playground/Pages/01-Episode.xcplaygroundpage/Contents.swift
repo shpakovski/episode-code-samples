@@ -31,11 +31,11 @@ let _: Int? = String.init(data: Data([55]), encoding: .utf8)
   .map(Int.init)
 
 ["1", "2", "buckle", "my", "shoe"]
-  .flatMap(Int.init)
+  .compactMap(Int.init)
 
 csv.split(separator: "\n")
   .flatMap { $0.split(separator: ",") }
-  .flatMap { Int($0) }
+  .compactMap { Int($0) }
   .reduce(0, +)
 
 
@@ -63,7 +63,7 @@ csv.split(separator: "\n")
 
 
 [1, 2, 3]
-  .flatMap { $0 + 1 }
+  .compactMap { $0 + 1 }
 
 
 
